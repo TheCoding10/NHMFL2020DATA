@@ -69,6 +69,75 @@ python3 main.py --dataset /Users/prayasthapa/Downloads/Tallahassee2022June --fie
 python3 main.py --dataset /Users/prayasthapa/Downloads/Tallahassee2022June --experiment Clark_SCM4.007.txt --plot
 ```
 
+## NHMFL March 2020 Commands
+
+Use this pattern when the dataset ZIP is in the default Downloads location:
+
+```bash
+cd /Users/prayasthapa/nhmfl-analysis-platform
+/opt/anaconda3/bin/python main.py [COMMAND]
+```
+
+Or pass the ZIP path explicitly:
+
+```bash
+/opt/anaconda3/bin/python main.py --dataset /Users/prayasthapa/Downloads/NHMFLMarch2020Data-20260630T191837Z-3-001.zip [COMMAND]
+```
+
+Generate a dataset summary:
+
+```bash
+/opt/anaconda3/bin/python main.py --summary
+```
+
+Search by temperature range:
+
+```bash
+/opt/anaconda3/bin/python main.py --temperature 0.5 2.0 --top 10
+```
+
+Search high magnetic-field experiments:
+
+```bash
+/opt/anaconda3/bin/python main.py --field 0 16 --top 10
+```
+
+Find oscillatory experiments:
+
+```bash
+/opt/anaconda3/bin/python main.py --oscillations --top 10
+```
+
+Rank experiments by signal-to-noise ratio:
+
+```bash
+/opt/anaconda3/bin/python main.py --snr --top 10
+```
+
+Find experiments with many detected peaks:
+
+```bash
+/opt/anaconda3/bin/python main.py --peaks 1000 --top 10
+```
+
+Generate plots for one experiment:
+
+```bash
+/opt/anaconda3/bin/python main.py --experiment Agosta.001.txt --plot
+```
+
+Search high-field experiments and plot the top 5:
+
+```bash
+/opt/anaconda3/bin/python main.py --field 0 16 --top 5 --plot
+```
+
+Export search results to CSV:
+
+```bash
+/opt/anaconda3/bin/python main.py --field 0 16 --top 20 --export
+```
+
 ## Tallahassee June 2022 Commands
 
 Use this pattern:
