@@ -46,6 +46,13 @@ For the Tallahassee June 2022 dataset, pass the flat folder path:
 python3 main.py --dataset /Users/prayasthapa/Downloads/Tallahassee2022June --summary
 ```
 
+On this machine, the Anaconda Python already has the scientific dependencies
+installed. If plain `python3` cannot import pandas, use:
+
+```bash
+/opt/anaconda3/bin/python main.py --dataset /Users/prayasthapa/Downloads/Tallahassee2022June --summary
+```
+
 The loader supports both the 2020 schema (`RuO_T`, `Counter`, `Angle`) and the
 2022 schema (`FQ1`, `FQ2`, `Cernox_T`, `DR_Temp`, optional angle).
 
@@ -60,6 +67,69 @@ python3 main.py --snr --top 10 --export
 python3 main.py --experiment Agosta.001.txt --plot
 python3 main.py --dataset /Users/prayasthapa/Downloads/Tallahassee2022June --field 20 28
 python3 main.py --dataset /Users/prayasthapa/Downloads/Tallahassee2022June --experiment Clark_SCM4.007.txt --plot
+```
+
+## Tallahassee June 2022 Commands
+
+Use this pattern:
+
+```bash
+cd /Users/prayasthapa/nhmfl-analysis-platform
+/opt/anaconda3/bin/python main.py --dataset /Users/prayasthapa/Downloads/Tallahassee2022June [COMMAND]
+```
+
+Generate a dataset summary:
+
+```bash
+/opt/anaconda3/bin/python main.py --dataset /Users/prayasthapa/Downloads/Tallahassee2022June --summary
+```
+
+Search high magnetic-field experiments:
+
+```bash
+/opt/anaconda3/bin/python main.py --dataset /Users/prayasthapa/Downloads/Tallahassee2022June --field 20 28 --top 10
+```
+
+Search by temperature range:
+
+```bash
+/opt/anaconda3/bin/python main.py --dataset /Users/prayasthapa/Downloads/Tallahassee2022June --temperature 0.03 0.3 --top 10
+```
+
+Find oscillatory experiments:
+
+```bash
+/opt/anaconda3/bin/python main.py --dataset /Users/prayasthapa/Downloads/Tallahassee2022June --oscillations --top 10
+```
+
+Rank experiments by signal-to-noise ratio:
+
+```bash
+/opt/anaconda3/bin/python main.py --dataset /Users/prayasthapa/Downloads/Tallahassee2022June --snr --top 10
+```
+
+Find experiments with many detected peaks:
+
+```bash
+/opt/anaconda3/bin/python main.py --dataset /Users/prayasthapa/Downloads/Tallahassee2022June --peaks 100 --top 10
+```
+
+Generate plots for one experiment:
+
+```bash
+/opt/anaconda3/bin/python main.py --dataset /Users/prayasthapa/Downloads/Tallahassee2022June --experiment Clark_SCM4.007.txt --plot
+```
+
+Search high-field experiments and plot the top 5:
+
+```bash
+/opt/anaconda3/bin/python main.py --dataset /Users/prayasthapa/Downloads/Tallahassee2022June --field 20 28 --top 5 --plot
+```
+
+Export search results to CSV:
+
+```bash
+/opt/anaconda3/bin/python main.py --dataset /Users/prayasthapa/Downloads/Tallahassee2022June --field 20 28 --top 20 --export
 ```
 
 ## Outputs
