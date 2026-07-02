@@ -14,7 +14,20 @@ from experiment_loader import Experiment
 
 LOGGER = logging.getLogger(__name__)
 
-STRUCTURAL_PREFIXES = ("Timestamp_", "RuO_T_", "Cx_T_", "Field_", "Angle_")
+STRUCTURAL_PREFIXES = (
+    "Timestamp_",
+    "RuO_T_",
+    "Cx_T_",
+    "Cernox_T_",
+    "Cernox_R_",
+    "Cernox_",
+    "DR_Temp_",
+    "Field_",
+    "Angle_",
+    "Steps_",
+)
+TEMPERATURE_PREFIXES = ("RuO_T_", "Cx_T_", "Cernox_T_", "DR_Temp_", "Cernox_")
+SIGNAL_PREFERENCE_PREFIXES = ("Counter_", "FQ1_", "FQ2_")
 
 
 @dataclass(frozen=True)
@@ -125,7 +138,10 @@ def detect_signal_columns(experiment: Experiment) -> SignalColumns:
         signal=signal_column,
         timestamp=_find_optional_prefixed_column(columns, "Timestamp_"),
         magnetic_field=_find_optional_prefixed_column(columns, "Field_"),
-        temperature=_find_optional_prefixed_column(columns, "RuO_T_"),
+        temperature=_find_optional_prefixed_column_by_options(
+            columns,
+            TEMPERATURE_PREFIXES,
+        ),
         angle=_find_optional_prefixed_column(columns, "Angle_"),
         measurements=measurements,
     )
@@ -138,9 +154,10 @@ def choose_signal_column(
     """Choose the best measurement signal column, preferring Counter."""
 
     column_tuple = tuple(columns)
-    counter = _find_optional_prefixed_column(column_tuple, "Counter_")
-    if counter is not None:
-        return counter
+    for prefix in SIGNAL_PREFERENCE_PREFIXES:
+        column = _find_optional_prefixed_column(column_tuple, prefix)
+        if column is not None:
+            return column
 
     measurement_tuple = tuple(measurements)
     if measurement_tuple:
@@ -411,8 +428,9 @@ def noise_statistics(
         residual = values - np.nanmean(values)
 
     mean = float(np.nanmean(residual))
-    standard_deviation = float(np.nanstd(residual, ddof=1))
-    variance = float(np.nanvar(residual, ddof=1))
+    ddof = 1 if residual.size > 1 else 0
+    standard_deviation = float(np.nanstd(residual, ddof=ddof))
+    variance = float(np.nanvar(residual, ddof=ddof))
     root_mean_square = float(np.sqrt(np.nanmean(residual**2)))
     median = np.nanmedian(residual)
     median_absolute_deviation = float(np.nanmedian(np.abs(residual - median)))
@@ -441,6 +459,17 @@ def _find_optional_prefixed_column(
 ) -> str | None:
     for column in columns:
         if column.startswith(prefix):
+            return column
+    return None
+
+
+def _find_optional_prefixed_column_by_options(
+    columns: Iterable[str],
+    prefixes: tuple[str, ...],
+) -> str | None:
+    for prefix in prefixes:
+        column = _find_optional_prefixed_column(columns, prefix)
+        if column is not None:
             return column
     return None
 

@@ -1,4 +1,4 @@
-"""Load NHMFL March 2020 text experiments into pandas DataFrames."""
+"""Load NHMFL experiment text files into pandas DataFrames."""
 
 from __future__ import annotations
 
@@ -20,7 +20,11 @@ DATE_PATTERN = re.compile(
     r"(?P<date>[A-Z][a-z]{2}, [A-Z][a-z]{2} \d{1,2}, \d{4} "
     r"\d{1,2}:\d{2}:\d{2} [AP]M)"
 )
-REQUIRED_COLUMN_PREFIXES = ("Timestamp_", "RuO_T_", "Field_", "Angle_")
+FIELD_PREFIXES = ("Field_",)
+TIMESTAMP_PREFIXES = ("Timestamp_",)
+TEMPERATURE_PREFIXES = ("RuO_T_", "Cx_T_", "Cernox_T_", "DR_Temp_", "Cernox_")
+ANGLE_PREFIXES = ("Angle_",)
+IGNORED_SUFFIXES = {".pxp", ".xlsx", ".xls", ".csv", ".png", ".jpg", ".jpeg"}
 
 
 @dataclass
@@ -101,9 +105,15 @@ def read_experiment_file(filename: str, file_obj: BinaryIO) -> Experiment:
     dataframe = pd.read_csv(BytesIO(table_bytes), sep="\t")
     dataframe = dataframe.apply(pd.to_numeric, errors="raise")
 
-    field_column = _find_column(dataframe.columns, "Field_")
-    temperature_column = _find_column(dataframe.columns, "RuO_T_")
-    angle_column = _find_column(dataframe.columns, "Angle_")
+    field_column = _find_column_by_prefixes(dataframe.columns, FIELD_PREFIXES)
+    temperature_column = _find_column_by_prefixes(
+        dataframe.columns,
+        TEMPERATURE_PREFIXES,
+    )
+    angle_column = _find_optional_column_by_prefixes(
+        dataframe.columns,
+        ANGLE_PREFIXES,
+    )
 
     return Experiment(
         filename=filename,
@@ -115,8 +125,8 @@ def read_experiment_file(filename: str, file_obj: BinaryIO) -> Experiment:
         max_magnetic_field=_series_max(dataframe[field_column]),
         min_temperature=_series_min(dataframe[temperature_column]),
         max_temperature=_series_max(dataframe[temperature_column]),
-        min_angle=_series_min(dataframe[angle_column]),
-        max_angle=_series_max(dataframe[angle_column]),
+        min_angle=_series_min(dataframe[angle_column]) if angle_column else None,
+        max_angle=_series_max(dataframe[angle_column]) if angle_column else None,
         metadata=metadata,
     )
 
@@ -126,7 +136,7 @@ def load_experiments(
     *,
     print_report: bool = True,
 ) -> list[Experiment]:
-    """Load all text experiments from an extracted NHMFLMarch2020Data folder."""
+    """Load all experiment files from an extracted dataset folder."""
 
     root_path = Path(root)
     data_dir = _resolve_data_dir(root_path)
@@ -134,7 +144,7 @@ def load_experiments(
     experiments: list[Experiment] = []
 
     LOGGER.info("Loading experiments from %s", data_dir)
-    for path in sorted(data_dir.rglob("*.txt")):
+    for path in sorted(path for path in data_dir.rglob("*") if _is_data_file(path)):
         try:
             with path.open("rb") as file_obj:
                 experiment = read_experiment_file(str(path), file_obj)
@@ -175,7 +185,7 @@ def load_experiments_from_zip(
         names = sorted(
             name
             for name in archive.namelist()
-            if name.startswith(data_prefix) and name.endswith(".txt")
+            if name.startswith(data_prefix) and _is_data_name(name)
         )
         for name in names:
             try:
@@ -229,8 +239,10 @@ def print_summary(experiments: list[Experiment], report: LoadReport) -> None:
 def _resolve_data_dir(root_path: Path) -> Path:
     if root_path.name == "data":
         data_dir = root_path
-    else:
+    elif (root_path / "data").is_dir():
         data_dir = root_path / "data"
+    else:
+        data_dir = root_path
 
     if not data_dir.is_dir():
         raise FileNotFoundError(f"experiment data directory was not found: {data_dir}")
@@ -240,20 +252,41 @@ def _resolve_data_dir(root_path: Path) -> Path:
 
 def _is_column_header(line: str) -> bool:
     columns = line.strip().split("\t")
-    if len(columns) < len(REQUIRED_COLUMN_PREFIXES):
+    if len(columns) < 2:
         return False
 
     return all(
-        any(column.startswith(prefix) for column in columns)
-        for prefix in REQUIRED_COLUMN_PREFIXES
+        _find_optional_column_by_prefixes(columns, prefixes) is not None
+        for prefixes in (FIELD_PREFIXES, TIMESTAMP_PREFIXES)
     )
 
 
-def _find_column(columns: Iterable[str], prefix: str) -> str:
+def _find_column_by_prefixes(columns: Iterable[str], prefixes: tuple[str, ...]) -> str:
+    column = _find_optional_column_by_prefixes(columns, prefixes)
+    if column is None:
+        raise ValueError(f"required column with prefixes {prefixes!r} was not found")
+    return column
+
+
+def _find_optional_column_by_prefixes(
+    columns: Iterable[str],
+    prefixes: tuple[str, ...],
+) -> str | None:
     for column in columns:
-        if column.startswith(prefix):
+        if column.startswith(prefixes):
             return column
-    raise ValueError(f"required column with prefix {prefix!r} was not found")
+    return None
+
+
+def _is_data_file(path: Path) -> bool:
+    return path.is_file() and _is_data_name(path.name)
+
+
+def _is_data_name(name: str) -> bool:
+    suffix = Path(name).suffix.lower()
+    if suffix in IGNORED_SUFFIXES:
+        return False
+    return suffix == ".txt" or suffix[1:].isdigit()
 
 
 def _series_min(series: pd.Series) -> float | None:

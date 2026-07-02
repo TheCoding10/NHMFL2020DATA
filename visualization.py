@@ -29,8 +29,9 @@ class ExperimentColumns:
     magnetic_field: str
     timestamp: str
     temperature: str
-    angle: str
+    angle: str | None
     counter: str | None
+    primary_measurement: str | None
     measurements: tuple[str, ...]
 
 
@@ -40,8 +41,11 @@ def detect_columns(experiment: Experiment) -> ExperimentColumns:
     columns = tuple(str(column) for column in experiment.dataframe.columns)
     magnetic_field = _find_prefixed_column(columns, "Field_")
     timestamp = _find_prefixed_column(columns, "Timestamp_")
-    temperature = _find_prefixed_column(columns, "RuO_T_")
-    angle = _find_prefixed_column(columns, "Angle_")
+    temperature = _find_prefixed_column_by_options(
+        columns,
+        ("RuO_T_", "Cx_T_", "Cernox_T_", "DR_Temp_", "Cernox_"),
+    )
+    angle = _find_optional_prefixed_column(columns, "Angle_")
     counter = _find_optional_prefixed_column(columns, "Counter_")
 
     structural_columns = {
@@ -53,6 +57,7 @@ def detect_columns(experiment: Experiment) -> ExperimentColumns:
     measurements = tuple(
         column for column in columns if column not in structural_columns
     )
+    primary_measurement = counter or _choose_primary_measurement(measurements)
 
     return ExperimentColumns(
         magnetic_field=magnetic_field,
@@ -60,6 +65,7 @@ def detect_columns(experiment: Experiment) -> ExperimentColumns:
         temperature=temperature,
         angle=angle,
         counter=counter,
+        primary_measurement=primary_measurement,
         measurements=measurements,
     )
 
@@ -74,18 +80,19 @@ def plot_magnetic_field_vs_counter(
     """Plot magnetic field as a function of counter/readout."""
 
     columns = detect_columns(experiment)
-    if columns.counter is None:
+    x_column = columns.counter or columns.primary_measurement
+    if x_column is None:
         LOGGER.warning(
-            "Skipping counter plot for %s: no counter column",
+            "Skipping signal plot for %s: no measurement column",
             experiment.filename,
         )
         return None
 
     return _plot_experiment_columns(
         experiment,
-        x_column=columns.counter,
+        x_column=x_column,
         y_column=columns.magnetic_field,
-        title="Magnetic Field vs Counter",
+        title=f"Magnetic Field vs {x_column}",
         output_dir=output_dir,
         filename_suffix="field_vs_counter",
         show=show,
@@ -276,11 +283,30 @@ def _find_prefixed_column(columns: Iterable[str], prefix: str) -> str:
     return column
 
 
+def _find_prefixed_column_by_options(
+    columns: Iterable[str],
+    prefixes: tuple[str, ...],
+) -> str:
+    for prefix in prefixes:
+        column = _find_optional_prefixed_column(columns, prefix)
+        if column is not None:
+            return column
+    raise ValueError(f"required column with prefixes {prefixes!r} was not found")
+
+
 def _find_optional_prefixed_column(columns: Iterable[str], prefix: str) -> str | None:
     for column in columns:
         if column.startswith(prefix):
             return column
     return None
+
+
+def _choose_primary_measurement(measurements: tuple[str, ...]) -> str | None:
+    for prefix in ("Counter_", "FQ1_", "FQ2_"):
+        for column in measurements:
+            if column.startswith(prefix):
+                return column
+    return measurements[0] if measurements else None
 
 
 def _experiment_label(experiment: Experiment) -> str:
@@ -295,7 +321,7 @@ def _safe_stem(experiment: Experiment) -> str:
 def _axis_label(column: str) -> str:
     if column.startswith("Timestamp_"):
         return f"{column} (s)"
-    if column.startswith("RuO_T_") or column.startswith("Cx_T_"):
+    if column.startswith(("RuO_T_", "Cx_T_", "Cernox_T_", "DR_Temp_", "Cernox_")):
         return f"{column} (K)"
     if column.startswith("Field_"):
         return f"{column} (T)"

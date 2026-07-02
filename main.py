@@ -35,6 +35,7 @@ DEFAULT_ZIP_PATH = (
 DEFAULT_DATASET_PATH = Path("NHMFLMarch2020Data")
 PLOTS_DIR = Path("output") / "plots"
 RESULTS_DIR = Path("output") / "results"
+IGNORED_DATA_SUFFIXES = {".pxp", ".xlsx", ".xls", ".csv", ".png", ".jpg", ".jpeg"}
 
 
 @dataclass(frozen=True)
@@ -242,7 +243,7 @@ def _load_zip_dataset(dataset_path: Path) -> DatasetLoadResult:
             if name.startswith("NHMFLMarch2020Data/data/")
             and name.endswith(".txt")
         ]
-        print(f"Found {len(names)} experiment text file(s). Loading...")
+        print(f"Found {len(names)} experiment file(s). Loading...")
         for index, name in enumerate(names, start=1):
             _print_progress(index, len(names), "loading")
             try:
@@ -270,16 +271,22 @@ def _load_zip_dataset(dataset_path: Path) -> DatasetLoadResult:
 def _load_folder_dataset(dataset_path: Path) -> DatasetLoadResult:
     """Load experiments from an extracted dataset folder with progress."""
 
-    data_dir = dataset_path if dataset_path.name == "data" else dataset_path / "data"
+    if dataset_path.name == "data":
+        data_dir = dataset_path
+    elif (dataset_path / "data").is_dir():
+        data_dir = dataset_path / "data"
+    else:
+        data_dir = dataset_path
+
     if not data_dir.is_dir():
         raise FileNotFoundError(f"experiment data directory was not found: {data_dir}")
 
-    paths = sorted(data_dir.rglob("*.txt"))
+    paths = sorted(path for path in data_dir.rglob("*") if _is_data_file(path))
     experiments: list[Experiment] = []
     skipped_empty = 0
     skipped_corrupted = 0
 
-    print(f"Found {len(paths)} experiment text file(s). Loading...")
+    print(f"Found {len(paths)} experiment file(s). Loading...")
     for index, path in enumerate(paths, start=1):
         _print_progress(index, len(paths), "loading")
         try:
@@ -582,6 +589,15 @@ def _validate_args(parser: argparse.ArgumentParser, args: argparse.Namespace) ->
         parser.error("--temperature MIN must be <= MAX")
     if args.field and args.field[0] > args.field[1]:
         parser.error("--field MIN must be <= MAX")
+
+
+def _is_data_file(path: Path) -> bool:
+    if not path.is_file():
+        return False
+    suffix = path.suffix.lower()
+    if suffix in IGNORED_DATA_SUFFIXES:
+        return False
+    return suffix == ".txt" or suffix[1:].isdigit()
 
 
 def _range_pair_statistics(
