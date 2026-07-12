@@ -18,6 +18,9 @@ matter experiment data from NHMFL/Tallahassee measurement campaigns.
 
 - `experiment_loader.py` loads raw experiment files.
 - `visualization.py` generates plots in `output/plots/`.
+- `dataset_analyzer.py` automatically detects the independent variable,
+  constant parameters, and measurements for a dataset, then generates plots
+  in `output/auto_plots/`.
 - `signal_processing.py` provides reusable analysis functions.
 - `search_engine.py` searches and ranks experiments.
 - `main.py` provides the command-line interface.
@@ -65,6 +68,7 @@ python3 main.py --field 0 16 --top 20
 python3 main.py --oscillations --top 10
 python3 main.py --snr --top 10 --export
 python3 main.py --experiment Agosta.001.txt --plot
+python3 main.py --experiment Agosta.001.txt --auto-analyze
 python3 main.py --dataset /Users/prayasthapa/Downloads/Tallahassee2022June --field 20 28
 python3 main.py --dataset /Users/prayasthapa/Downloads/Tallahassee2022June --experiment Clark_SCM4.007.txt --plot
 ```
@@ -138,6 +142,12 @@ Export search results to CSV:
 /opt/anaconda3/bin/python main.py --field 0 16 --top 20 --export
 ```
 
+Automatically detect structure and plot every measurement for one experiment:
+
+```bash
+/opt/anaconda3/bin/python main.py --experiment Agosta.001.txt --auto-analyze
+```
+
 ## Tallahassee June 2022 Commands
 
 Use this pattern:
@@ -207,6 +217,7 @@ Generated files are written to:
 
 ```text
 output/plots/
+output/auto_plots/
 output/results/
 ```
 

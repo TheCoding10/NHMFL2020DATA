@@ -13,6 +13,7 @@ import zipfile
 
 import pandas as pd
 
+from dataset_analyzer import DatasetAnalyzer
 from experiment_loader import Experiment, read_experiment_file
 from search_engine import (
     SearchResult,
@@ -34,6 +35,7 @@ DEFAULT_ZIP_PATH = (
 )
 DEFAULT_DATASET_PATH = Path("NHMFLMarch2020Data")
 PLOTS_DIR = Path("output") / "plots"
+AUTO_PLOTS_DIR = Path("output") / "auto_plots"
 RESULTS_DIR = Path("output") / "results"
 IGNORED_DATA_SUFFIXES = {".pxp", ".xlsx", ".xls", ".csv", ".png", ".jpg", ".jpeg"}
 
@@ -78,6 +80,16 @@ def parse_args() -> argparse.Namespace:
         "--plot",
         action="store_true",
         help="Generate standard plots for matching experiments.",
+    )
+    parser.add_argument(
+        "--auto-analyze",
+        action="store_true",
+        help=(
+            "Automatically detect the independent variable, constant "
+            "parameters, and measurements for matching experiments, then "
+            "plot every measurement against the detected independent "
+            "variable."
+        ),
     )
     parser.add_argument(
         "--temperature",
@@ -145,6 +157,7 @@ def main() -> int:
     configure_logging(verbose=args.verbose)
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
     PLOTS_DIR.mkdir(parents=True, exist_ok=True)
+    AUTO_PLOTS_DIR.mkdir(parents=True, exist_ok=True)
 
     dataset_path = resolve_dataset_path(args.dataset)
     print(f"Loading dataset from {dataset_path}")
@@ -187,8 +200,23 @@ def main() -> int:
         plot_paths = plot_selected_experiments(targets, output_dir=PLOTS_DIR)
         print(f"Generated {len(plot_paths)} plot file(s) in {PLOTS_DIR}")
 
-    if not args.summary and not has_search_request(args) and not args.plot:
-        print("No action selected. Use --summary, --plot, or a search option.")
+    if args.auto_analyze:
+        if results:
+            targets = [result.experiment for result in top_n(results, args.top)]
+        else:
+            targets = experiments
+        run_auto_analysis(targets, output_dir=AUTO_PLOTS_DIR)
+
+    if (
+        not args.summary
+        and not has_search_request(args)
+        and not args.plot
+        and not args.auto_analyze
+    ):
+        print(
+            "No action selected. Use --summary, --plot, --auto-analyze, or a "
+            "search option."
+        )
 
     return 0
 
@@ -492,6 +520,23 @@ def plot_selected_experiments(
 
     print(f"Generating plots for {len(experiment_list)} experiment(s)...")
     return plot_all_experiments(experiment_list, output_dir=output_dir)
+
+
+def run_auto_analysis(
+    experiments: Iterable[Experiment],
+    *,
+    output_dir: Path,
+) -> None:
+    """Run automatic structure detection and plotting for each experiment."""
+
+    experiment_list = list(experiments)
+    print(f"Auto-analyzing {len(experiment_list)} experiment(s)...")
+    for experiment in experiment_list:
+        name = Path(experiment.filename).stem
+        analyzer = DatasetAnalyzer(experiment.dataframe, name=name)
+        plots = analyzer.generate_plots(output_dir=output_dir)
+        print(f"\n{name}")
+        analyzer.print_summary(plots)
 
 
 def export_search_results(results: list[SearchResult]) -> Path:
